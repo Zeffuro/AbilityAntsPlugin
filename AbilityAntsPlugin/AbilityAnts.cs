@@ -134,6 +134,9 @@ namespace AbilityAntsPlugin
                 return ret;
             if (Configuration.ActiveActions.ContainsKey(actionID))
             {
+                if (!CachedActions.ContainsKey(actionID)) 
+                    return ret;
+                
                 bool recastActive = AM->IsRecastTimerActive(at, actionID);
                 var action = CachedActions[actionID];
                 float timeLeft;
