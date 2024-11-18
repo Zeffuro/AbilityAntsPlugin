@@ -196,7 +196,6 @@ namespace AbilityAntsPlugin
             {
                 ImGui.PushID(action.Name.ExtractText());
                 bool active = Configuration.ActiveActions.ContainsKey(action.RowId);
-                int preTime;
                 DrawIcon(action);
                 ImGui.SameLine();
                 ImGui.Text(action.Name.ExtractText());
@@ -206,7 +205,6 @@ namespace AbilityAntsPlugin
                     if (active)
                     {
                         Configuration.ActiveActions.Add(action.RowId, Configuration.PreAntTimeMs);
-                        preTime = Configuration.PreAntTimeMs;
                     }
                     else
                     {
@@ -231,7 +229,7 @@ namespace AbilityAntsPlugin
         {
             GameIconLookup lookup = new GameIconLookup(action.Icon);
             IDalamudTextureWrap? tw = Services.TextureProvider.GetFromGameIcon(lookup).GetWrapOrDefault();
-            ImGui.Image(tw.ImGuiHandle, new(tw.Width, tw.Height));
+            if(tw != null) ImGui.Image(tw.ImGuiHandle, tw.Size);
         }
     }
 
