@@ -16,7 +16,7 @@ namespace AbilityAnts
         [PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
         [PluginService] public static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
 
-        public static void Initialize(DalamudPluginInterface pi)
+        public static void Initialize(IDalamudPluginInterface pi)
         {
             pi.Create<Services>();
         }

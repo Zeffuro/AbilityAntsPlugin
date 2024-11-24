@@ -11,8 +11,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Action = Lumina.Excel.GeneratedSheets.Action;
+using Action = Lumina.Excel.Sheets.Action;
 using Dalamud.Logging;
+using ImGuiNET;
 
 namespace AbilityAntsPlugin
 {
@@ -24,7 +25,7 @@ namespace AbilityAntsPlugin
 
         private const string commandName = "/pants";
 
-        private DalamudPluginInterface PluginInterface { get; init; }
+        private IDalamudPluginInterface PluginInterface { get; init; }
         private Configuration Configuration { get; init; }
         private AbilityAntsUI PluginUi { get; init; }
 
@@ -42,9 +43,9 @@ namespace AbilityAntsPlugin
         private Dictionary<uint, Action> CachedActions;
 
         public AbilityAnts(
-            [RequiredVersion("1.0")] DalamudPluginInterface pluginInterface,
-            [RequiredVersion("1.0")] IClientState clientState,
-            [RequiredVersion("1.0")] ICommandManager commandManager)
+            IDalamudPluginInterface pluginInterface,
+            IClientState clientState,
+            ICommandManager commandManager)
         {
             Services.Initialize(pluginInterface);
             this.PluginInterface = pluginInterface;
@@ -115,7 +116,7 @@ namespace AbilityAntsPlugin
             }
         }
 
-        public unsafe void OnLogout()
+        public unsafe void OnLogout(int _, int __)
         {
             AM = null;
         }
@@ -134,6 +135,9 @@ namespace AbilityAntsPlugin
                 return ret;
             if (Configuration.ActiveActions.ContainsKey(actionID))
             {
+                if (!CachedActions.ContainsKey(actionID)) 
+                    return ret;
+                
                 bool recastActive = AM->IsRecastTimerActive(at, actionID);
                 var action = CachedActions[actionID];
                 float timeLeft;
@@ -177,20 +181,34 @@ namespace AbilityAntsPlugin
             if (timer->IsActive == 0) return maxCharges; 
             return (int)(maxCharges * (timer->Elapsed / timer->Total));
         }
-
+        
         private void CacheActions()
         {
             CachedActions = new();
-            var actions = Services.DataManager.GetExcelSheet<Action>()!.
-                    Where(a => !a.IsPvP && a.ClassJob.Value?.Unknown6 > 0 && a.IsPlayerAction && (a.ActionCategory.Row == 4 || a.Recast100ms > 100)).ToList();
+    
+            var actions = Services.DataManager.GetExcelSheet<Action>()!
+                .Where(a => !a.IsPvP && a.ClassJob.ValueNullable?.Unknown6 > 0 && a.IsPlayerAction && 
+                            (a.ActionCategory.RowId == 4 || a.Recast100ms > 100))
+                .ToList();
+    
             foreach (var action in actions)
             {
-                CachedActions[action.RowId] = action;
+                if (!CachedActions.ContainsKey(action.RowId))
+                {
+                    CachedActions[action.RowId] = action;
+                }
             }
-            var roleActions = Services.DataManager.GetExcelSheet<Action>()!.Where(a => a.IsRoleAction && a.ClassJobLevel != 0).ToList();
+
+            var roleActions = Services.DataManager.GetExcelSheet<Action>()!
+                .Where(a => a.IsRoleAction && a.ClassJobLevel != 0)
+                .ToList();
+    
             foreach (var ra in roleActions)
             {
-                CachedActions[ra.RowId] = ra;
+                if (!CachedActions.ContainsKey(ra.RowId))
+                {
+                    CachedActions[ra.RowId] = ra;
+                }
             }
         }
     }

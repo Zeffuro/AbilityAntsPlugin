@@ -9,7 +9,8 @@ namespace AbilityAntsPlugin
 
         public static void Setup64Bit(ISigScanner scanner)
         {
-            ShouldDrawAnts = scanner.ScanText("E8 ?? ?? ?? ?? 48 8B CB 88 47 41");
+            // TODO: Swap to hook from IsActionHighlighted in CS
+            ShouldDrawAnts = scanner.ScanText("E8 ?? ?? ?? ?? 88 46 41 80 BF");
         }
     }
 }

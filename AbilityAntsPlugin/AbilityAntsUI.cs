@@ -1,12 +1,14 @@
 ﻿using AbilityAnts;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using Action = Lumina.Excel.GeneratedSheets.Action;
-using Dalamud.Interface.Internal;
+using System.Threading.Tasks;
+using Dalamud.Interface.Textures;
+using Action = Lumina.Excel.Sheets.Action;
+using Dalamud.Interface.Textures.TextureWraps;
 
 namespace AbilityAntsPlugin
 {
@@ -35,7 +37,7 @@ namespace AbilityAntsPlugin
         private int ExistingAntTimeMs = 0;
 
         private List<ClassJob> Jobs;
-        private ClassJob SelectedJob = null;
+        private ClassJob? SelectedJob = null;
         private Dictionary<uint, List<Action>> JobActions;
         private List<Action> RoleActions;
         private Dictionary<uint, IDalamudTextureWrap?> LoadedIcons;
@@ -47,8 +49,8 @@ namespace AbilityAntsPlugin
 
             PreAntTimeMs = Configuration.PreAntTimeMs;
 
-            Jobs = Services.DataManager.GetExcelSheet<ClassJob>()!.Where(j => j.Role > 0 && j.ItemSoulCrystal.Value?.RowId > 0).ToList();
-            Jobs.Sort((lhs, rhs) => lhs.Name.RawString.CompareTo(rhs.Name.RawString));
+            Jobs = Services.DataManager.GetExcelSheet<ClassJob>()!.Where(j => j.Role > 0 && j.ItemSoulCrystal.Value.RowId > 0).ToList();
+            Jobs.Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
             JobActions = new();
             foreach(var job in Jobs)
             {
@@ -56,27 +58,25 @@ namespace AbilityAntsPlugin
                 if (job.RowId == 27)
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                    Where(a => !a.IsPvP && (a.ClassJob.Row == 26 || a.ClassJob.Row == 27) && a.IsPlayerAction && (a.ActionCategory.Row == 4 || a.Recast100ms > 100)).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.RawString.CompareTo(rhs.Name.RawString));
+                    Where(a => !a.IsPvP && (a.ClassJob.RowId == 26 || a.ClassJob.RowId == 27) && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
+                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
                 // SCH
                 else if (job.RowId == 28)
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                    Where(a => !a.IsPvP && a.ClassJob.Row == 28 && a.IsPlayerAction && (a.ActionCategory.Row == 4 || a.Recast100ms > 100)).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.RawString.CompareTo(rhs.Name.RawString));
+                    Where(a => !a.IsPvP && a.ClassJob.RowId == 28 && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
+                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
                 else
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                        Where(a => !a.IsPvP && a.ClassJob.Value?.ExpArrayIndex == job.ExpArrayIndex && a.IsPlayerAction && (a.ActionCategory.Row == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.RawString.CompareTo(rhs.Name.RawString));
+                        Where(a => !a.IsPvP && a.ClassJob.RowId == job.RowId  && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
+                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
             }
             RoleActions = Services.DataManager.GetExcelSheet<Action>()!.Where(a => a.IsRoleAction && a.ClassJobLevel != 0).ToList();
-            RoleActions.Sort((lhs, rhs) => lhs.Name.RawString.CompareTo(rhs.Name.RawString));
-
-            CacheIcons();
+            RoleActions.Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
         }
 
         public void Dispose()
@@ -151,7 +151,7 @@ namespace AbilityAntsPlugin
                     }
                     foreach (var job in Jobs)
                     {
-                        if (ImGui.Selectable(job.Abbreviation))
+                        if (ImGui.Selectable(job.Abbreviation.ExtractText()))
                         {
                             SelectedJob = job;
                         }
@@ -160,14 +160,16 @@ namespace AbilityAntsPlugin
                 }
 
                 ImGui.SameLine();
+                
+                
 
                 if (ImGui.BeginChild("testo2", new(-1, -1)))
                 {
                     List<Action> actions;
                     if (SelectedJob != null)
                     {
-                        ImGui.PushID(SelectedJob.Abbreviation.RawString);
-                        actions = JobActions[SelectedJob.RowId];
+                        ImGui.PushID(SelectedJob.Value.Abbreviation.ExtractText());
+                        actions = JobActions[SelectedJob.Value.RowId];
                     }
                     else
                     {
@@ -192,19 +194,17 @@ namespace AbilityAntsPlugin
         {
             foreach (var action in actions)
             {
-                ImGui.PushID(action.Name.RawString);
+                ImGui.PushID(action.Name.ExtractText());
                 bool active = Configuration.ActiveActions.ContainsKey(action.RowId);
-                int preTime;
                 DrawIcon(action);
                 ImGui.SameLine();
-                ImGui.Text(action.Name.RawString);
+                ImGui.Text(action.Name.ExtractText());
                 ImGui.SameLine();
                 if (ImGui.Checkbox("Active", ref active))
                 {
                     if (active)
                     {
                         Configuration.ActiveActions.Add(action.RowId, Configuration.PreAntTimeMs);
-                        preTime = Configuration.PreAntTimeMs;
                     }
                     else
                     {
@@ -227,26 +227,9 @@ namespace AbilityAntsPlugin
 
         void DrawIcon(Action action)
         {
-            var texture = LoadedIcons[action.RowId];
-            ImGui.Image(texture.ImGuiHandle, new(texture.Width, texture.Height));
-        }
-
-        void CacheIcons()
-        {
-            LoadedIcons = new();
-            foreach (var action in RoleActions)
-            {
-                IDalamudTextureWrap? tw = Services.TextureProvider.GetIcon(action.Icon);
-                LoadedIcons[action.RowId] = tw;
-            }
-            foreach (var (_, v) in JobActions)
-            {
-                foreach (var action in v)
-                {
-                    IDalamudTextureWrap? tw = Services.TextureProvider.GetIcon(action.Icon);
-                    LoadedIcons[action.RowId] = tw;
-                }
-            }
+            GameIconLookup lookup = new GameIconLookup(action.Icon);
+            IDalamudTextureWrap? tw = Services.TextureProvider.GetFromGameIcon(lookup).GetWrapOrDefault();
+            if(tw != null) ImGui.Image(tw.ImGuiHandle, tw.Size);
         }
     }
 
