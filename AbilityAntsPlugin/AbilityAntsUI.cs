@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Dalamud.Interface.Textures;
 using Action = Lumina.Excel.Sheets.Action;
 using Dalamud.Interface.Textures.TextureWraps;
+using Lumina.Extensions;
 
 namespace AbilityAntsPlugin
 {
@@ -41,11 +42,16 @@ namespace AbilityAntsPlugin
         private Dictionary<uint, List<Action>> JobActions;
         private List<Action> RoleActions;
         private Dictionary<uint, IDalamudTextureWrap?> LoadedIcons;
+        
+        public Dictionary<uint, HashSet<int>> JobActionWhitelist = new()
+        {
+            { 33, new HashSet<int> { 37018 } },
+        };
 
         // passing in the image here just for simplicity
         public AbilityAntsUI(Configuration configuration)
         {
-            this.Configuration = configuration;
+            this.Configuration = configuration; 
 
             PreAntTimeMs = Configuration.PreAntTimeMs;
 
@@ -59,21 +65,32 @@ namespace AbilityAntsPlugin
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
                     Where(a => !a.IsPvP && (a.ClassJob.RowId == 26 || a.ClassJob.RowId == 27) && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
                 // SCH
                 else if (job.RowId == 28)
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
                     Where(a => !a.IsPvP && a.ClassJob.RowId == 28 && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
                 else
                 {
                     JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
                         Where(a => !a.IsPvP && a.ClassJob.RowId == job.RowId  && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
-                    JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
                 }
+                if (JobActionWhitelist.TryGetValue(job.RowId, out var actionIds))
+                {
+                    foreach (int actionId in actionIds)
+                    {
+                        var action = Services.DataManager.GetExcelSheet<Action>()!
+                            .FirstOrNull(a => a.RowId == actionId);
+        
+                        if (action.HasValue)
+                        {
+                            JobActions[job.RowId].Add(action.Value);
+                        }
+                    }
+                }
+                JobActions[job.RowId].Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));
             }
             RoleActions = Services.DataManager.GetExcelSheet<Action>()!.Where(a => a.IsRoleAction && a.ClassJobLevel != 0).ToList();
             RoleActions.Sort((lhs, rhs) => lhs.Name.ExtractText().CompareTo(rhs.Name.ExtractText()));

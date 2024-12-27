@@ -185,10 +185,16 @@ namespace AbilityAntsPlugin
         private void CacheActions()
         {
             CachedActions = new();
+
+            var whitelistedActions = this.PluginUi.JobActionWhitelist.Values.SelectMany(hashSet => hashSet).ToList();
     
             var actions = Services.DataManager.GetExcelSheet<Action>()!
-                .Where(a => !a.IsPvP && a.ClassJob.ValueNullable?.Unknown6 > 0 && a.IsPlayerAction && 
-                            (a.ActionCategory.RowId == 4 || a.Recast100ms > 100))
+                .Where(a => 
+                    (!a.IsPvP && 
+                     a.ClassJob.ValueNullable?.Unknown6 > 0 && 
+                     a.IsPlayerAction && 
+                     (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)) 
+                    || whitelistedActions.Contains((int)a.RowId)) // Include whitelisted actions
                 .ToList();
     
             foreach (var action in actions)
