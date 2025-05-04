@@ -60,23 +60,9 @@ namespace AbilityAntsPlugin
             JobActions = new();
             foreach(var job in Jobs)
             {
-                // SMN
-                if (job.RowId == 27)
-                {
-                    JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                    Where(a => !a.IsPvP && (a.ClassJob.RowId == 26 || a.ClassJob.RowId == 27) && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
-                }
-                // SCH
-                else if (job.RowId == 28)
-                {
-                    JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                    Where(a => !a.IsPvP && a.ClassJob.RowId == 28 && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)).ToList();
-                }
-                else
-                {
-                    JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
-                        Where(a => !a.IsPvP && a.ClassJob.RowId == job.RowId  && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
-                }
+                JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
+                    Where(a => !a.IsPvP && (a.ClassJob.RowId == job.RowId || a.ClassJob.RowId == job.ClassJobParent.RowId)  && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
+                
                 if (JobActionWhitelist.TryGetValue(job.RowId, out var actionIds))
                 {
                     foreach (int actionId in actionIds)
