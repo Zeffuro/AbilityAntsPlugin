@@ -42,16 +42,16 @@ namespace AbilityAntsPlugin
         private Dictionary<uint, List<Action>> JobActions;
         private List<Action> RoleActions;
         private Dictionary<uint, IDalamudTextureWrap?> LoadedIcons;
-        
+
         public Dictionary<uint, HashSet<int>> JobActionWhitelist = new()
         {
-            { 33, new HashSet<int> { 37018 } },
+            { 33, new HashSet<int> { 7444, 7445, 37018, 37023, 37024, 37025, 37026, 37027, 37028 } },
         };
 
         // passing in the image here just for simplicity
         public AbilityAntsUI(Configuration configuration)
         {
-            this.Configuration = configuration; 
+            this.Configuration = configuration;
 
             PreAntTimeMs = Configuration.PreAntTimeMs;
 
@@ -62,14 +62,14 @@ namespace AbilityAntsPlugin
             {
                 JobActions[job.RowId] = Services.DataManager.GetExcelSheet<Action>()!.
                     Where(a => !a.IsPvP && (a.ClassJob.RowId == job.RowId || a.ClassJob.RowId == job.ClassJobParent.RowId)  && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581).ToList();
-                
+
                 if (JobActionWhitelist.TryGetValue(job.RowId, out var actionIds))
                 {
                     foreach (int actionId in actionIds)
                     {
                         var action = Services.DataManager.GetExcelSheet<Action>()!
                             .FirstOrNull(a => a.RowId == actionId);
-        
+
                         if (action.HasValue)
                         {
                             JobActions[job.RowId].Add(action.Value);
@@ -163,8 +163,8 @@ namespace AbilityAntsPlugin
                 }
 
                 ImGui.SameLine();
-                
-                
+
+
 
                 if (ImGui.BeginChild("testo2", new(-1, -1)))
                 {

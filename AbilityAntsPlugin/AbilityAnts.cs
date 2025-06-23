@@ -62,6 +62,7 @@ namespace AbilityAntsPlugin
             });
 
             PluginInterface.UiBuilder.Draw += DrawUI;
+            PluginInterface.UiBuilder.OpenMainUi += DrawConfigUI;
             PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
             ClientState.Login += OnLogin;
             ClientState.Logout += OnLogout;
@@ -112,7 +113,7 @@ namespace AbilityAntsPlugin
             }
             catch (Exception)
             {
-                
+
             }
         }
 
@@ -135,9 +136,9 @@ namespace AbilityAntsPlugin
                 return ret;
             if (Configuration.ActiveActions.ContainsKey(actionID))
             {
-                if (!CachedActions.ContainsKey(actionID)) 
+                if (!CachedActions.ContainsKey(actionID))
                     return ret;
-                
+
                 bool recastActive = AM->IsRecastTimerActive(at, actionID);
                 var action = CachedActions[actionID];
                 float timeLeft;
@@ -145,7 +146,7 @@ namespace AbilityAntsPlugin
                 float recastElapsed = AM->GetRecastTimeElapsed(at, actionID);
                 var maxCharges = ActionManager.GetMaxCharges((uint)actionID, ClientState.LocalPlayer.Level);
 
-                if (Configuration.ShowOnlyUsableActions && 
+                if (Configuration.ShowOnlyUsableActions &&
                     action.ClassJobLevel > ClientState.LocalPlayer.Level)
                     return false;
 
@@ -153,7 +154,7 @@ namespace AbilityAntsPlugin
                     return true;
 
                 if (maxCharges > 0)
-                {                     
+                {
                     if (!Configuration.AntOnFinalStack)
                     {
                         if (AvailableCharges(action, maxCharges) > 0) return true;
@@ -161,7 +162,7 @@ namespace AbilityAntsPlugin
                     }
                 }
                 timeLeft = recastTime - recastElapsed;
-                
+
                 return timeLeft <= Configuration.ActiveActions[actionID] / 1000;
             }
             return ret;
@@ -178,25 +179,25 @@ namespace AbilityAntsPlugin
                 timer = AM->GetRecastGroupDetail(action.AdditionalCooldownGroup);
             else
                 timer = AM->GetRecastGroupDetail((byte)tmp);
-            if (timer->IsActive == 0) return maxCharges; 
+            if (timer->IsActive == 0) return maxCharges;
             return (int)(maxCharges * (timer->Elapsed / timer->Total));
         }
-        
+
         private void CacheActions()
         {
             CachedActions = new();
 
             var whitelistedActions = this.PluginUi.JobActionWhitelist.Values.SelectMany(hashSet => hashSet).ToList();
-    
+
             var actions = Services.DataManager.GetExcelSheet<Action>()!
-                .Where(a => 
-                    (!a.IsPvP && 
-                     a.ClassJob.ValueNullable?.Unknown6 > 0 && 
-                     a.IsPlayerAction && 
-                     (a.ActionCategory.RowId == 4 || a.Recast100ms > 100)) 
+                .Where(a =>
+                    (!a.IsPvP &&
+                     a.ClassJob.ValueNullable?.Unknown6 > 0 &&
+                     a.IsPlayerAction &&
+                     (a.ActionCategory.RowId == 4 || a.Recast100ms > 100))
                     || whitelistedActions.Contains((int)a.RowId)) // Include whitelisted actions
                 .ToList();
-    
+
             foreach (var action in actions)
             {
                 if (!CachedActions.ContainsKey(action.RowId))
@@ -208,7 +209,7 @@ namespace AbilityAntsPlugin
             var roleActions = Services.DataManager.GetExcelSheet<Action>()!
                 .Where(a => a.IsRoleAction && a.ClassJobLevel != 0)
                 .ToList();
-    
+
             foreach (var ra in roleActions)
             {
                 if (!CachedActions.ContainsKey(ra.RowId))
