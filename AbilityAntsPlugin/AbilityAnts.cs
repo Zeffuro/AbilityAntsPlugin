@@ -29,7 +29,7 @@ namespace AbilityAntsPlugin
         private Configuration Configuration { get; init; }
         private AbilityAntsUI PluginUi { get; init; }
 
-        private Hook<OnDrawAntsDetour> DrawAntsHook;
+        private Hook<ActionManager.Delegates.IsActionHighlighted> DrawAntsHook;
         private unsafe ActionManager* AM;
         public IClientState ClientState => Services.ClientState;
         public ICondition Condition => Services.Condition;
@@ -42,7 +42,7 @@ namespace AbilityAntsPlugin
 
         private Dictionary<uint, Action> CachedActions;
 
-        public AbilityAnts(
+        public unsafe AbilityAnts(
             IDalamudPluginInterface pluginInterface,
             IClientState clientState,
             ICommandManager commandManager)
@@ -70,8 +70,7 @@ namespace AbilityAntsPlugin
             if (ClientState.IsLoggedIn)
                 OnLogin();
 
-            AbilityAntsAddressResolver.Setup64Bit(Scanner);
-            DrawAntsHook = GameInteropProvider.HookFromAddress<OnDrawAntsDetour>(AbilityAntsAddressResolver.ShouldDrawAnts, HandleAntCheck);
+            DrawAntsHook = GameInteropProvider.HookFromAddress<ActionManager.Delegates.IsActionHighlighted>(ActionManager.MemberFunctionPointers.IsActionHighlighted, HandleAntCheck);
 
             CacheActions();
 
@@ -122,15 +121,14 @@ namespace AbilityAntsPlugin
             AM = null;
         }
 
-        [return : MarshalAs(UnmanagedType.U1)]
-        private unsafe bool HandleAntCheck(IntPtr self, int actionType, uint actionID)
+        private unsafe bool HandleAntCheck(ActionManager* actionManager, ActionType actionType, uint actionID)
         {
             if (AM == null || ClientState.LocalPlayer == null) return false;
-            bool ret = DrawAntsHook.Original(self, actionType, actionID);
+            bool ret = DrawAntsHook.Original(actionManager, actionType, actionID);
             if (ret)
                 return ret;
-            ActionType at = (ActionType)actionType;
-            if (at != ActionType.Action)
+
+            if (actionType != ActionType.Action)
                 return ret;
             if (Configuration.ShowOnlyInCombat && !InCombat)
                 return ret;
@@ -139,11 +137,11 @@ namespace AbilityAntsPlugin
                 if (!CachedActions.ContainsKey(actionID))
                     return ret;
 
-                bool recastActive = AM->IsRecastTimerActive(at, actionID);
+                bool recastActive = AM->IsRecastTimerActive(actionType, actionID);
                 var action = CachedActions[actionID];
                 float timeLeft;
-                float recastTime = AM->GetRecastTime(at, actionID);
-                float recastElapsed = AM->GetRecastTimeElapsed(at, actionID);
+                float recastTime = AM->GetRecastTime(actionType, actionID);
+                float recastElapsed = AM->GetRecastTimeElapsed(actionType, actionID);
                 var maxCharges = ActionManager.GetMaxCharges((uint)actionID, ClientState.LocalPlayer.Level);
 
                 if (Configuration.ShowOnlyUsableActions &&
