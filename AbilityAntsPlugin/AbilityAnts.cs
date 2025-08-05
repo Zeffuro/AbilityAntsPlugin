@@ -1,4 +1,5 @@
 ﻿using AbilityAnts;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 using Dalamud.Game.ClientState.Conditions;
@@ -13,7 +14,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Action = Lumina.Excel.Sheets.Action;
 using Dalamud.Logging;
-using ImGuiNET;
 
 namespace AbilityAntsPlugin
 {
@@ -177,7 +177,7 @@ namespace AbilityAntsPlugin
                 timer = AM->GetRecastGroupDetail(action.AdditionalCooldownGroup);
             else
                 timer = AM->GetRecastGroupDetail((byte)tmp);
-            if (timer->IsActive == 0) return maxCharges;
+            if (timer->IsActive) return maxCharges;
             return (int)(maxCharges * (timer->Elapsed / timer->Total));
         }
 

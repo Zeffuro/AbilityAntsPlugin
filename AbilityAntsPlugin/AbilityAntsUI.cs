@@ -1,5 +1,5 @@
 ﻿using AbilityAnts;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Generic;
@@ -232,7 +232,7 @@ namespace AbilityAntsPlugin
         {
             GameIconLookup lookup = new GameIconLookup(action.Icon);
             IDalamudTextureWrap? tw = Services.TextureProvider.GetFromGameIcon(lookup).GetWrapOrDefault();
-            if(tw != null) ImGui.Image(tw.ImGuiHandle, tw.Size);
+            if(tw != null) ImGui.Image(tw.Handle, tw.Size);
         }
     }
 
