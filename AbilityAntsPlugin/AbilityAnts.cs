@@ -11,50 +11,46 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
+using AbilityAntsPlugin.Windows;
+using Dalamud.Interface.Windowing;
 using Action = Lumina.Excel.Sheets.Action;
-using Dalamud.Logging;
 
 namespace AbilityAntsPlugin
 {
     public sealed class AbilityAnts : IDalamudPlugin
     {
-        [return : MarshalAs(UnmanagedType.U1)]
-        private delegate bool OnDrawAntsDetour(IntPtr self, int at, uint ActionID);
         public string Name => "Ability Ants Plugin";
 
         private const string commandName = "/pants";
 
         private IDalamudPluginInterface PluginInterface { get; init; }
         private Configuration Configuration { get; init; }
-        private AbilityAntsUI PluginUi { get; init; }
+        private ConfigWindow ConfigWindow { get; init; }
 
         private Hook<ActionManager.Delegates.IsActionHighlighted> DrawAntsHook;
         private unsafe ActionManager* AM;
-        public IClientState ClientState => Services.ClientState;
-        public ICondition Condition => Services.Condition;
-        public IFramework Framework => Services.Framework;
-        public ISigScanner Scanner => Services.Scanner;
+        private IClientState ClientState => Services.ClientState;
+        private ICondition Condition => Services.Condition;
         private ICommandManager CommandManager => Services.CommandManager;
         private IGameInteropProvider GameInteropProvider => Services.GameInteropProvider;
 
         private bool InCombat => Condition[ConditionFlag.InCombat];
 
-        private Dictionary<uint, Action> CachedActions;
+        private readonly WindowSystem _windowSystem = new("AbilityAntsPlugin");
+        private readonly Dictionary<uint, Action> _cachedActions = new();
 
         public unsafe AbilityAnts(
-            IDalamudPluginInterface pluginInterface,
-            IClientState clientState,
-            ICommandManager commandManager)
+            IDalamudPluginInterface pluginInterface)
         {
             Services.Initialize(pluginInterface);
-            this.PluginInterface = pluginInterface;
+            PluginInterface = pluginInterface;
 
 
-            this.Configuration = this.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-            this.Configuration.Initialize(this.PluginInterface);
+            Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+            Configuration.Initialize(PluginInterface);
 
-            this.PluginUi = new AbilityAntsUI(this.Configuration);
+            ConfigWindow = new ConfigWindow(Configuration);
+            _windowSystem.AddWindow(ConfigWindow);
 
             CommandManager.AddHandler(commandName, new CommandInfo(OnCommand)
             {
@@ -62,8 +58,8 @@ namespace AbilityAntsPlugin
             });
 
             PluginInterface.UiBuilder.Draw += DrawUI;
-            PluginInterface.UiBuilder.OpenMainUi += DrawConfigUI;
-            PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
+            PluginInterface.UiBuilder.OpenMainUi += ToggleConfigUI;
+            PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUI;
             ClientState.Login += OnLogin;
             ClientState.Logout += OnLogout;
 
@@ -85,64 +81,57 @@ namespace AbilityAntsPlugin
         public void Dispose()
         {
             DrawAntsHook.Dispose();
-            this.PluginUi.Dispose();
-            this.CommandManager.RemoveHandler(commandName);
+
+            _windowSystem.RemoveAllWindows();
+            ConfigWindow.Dispose();
+
+            CommandManager.RemoveHandler(commandName);
         }
 
         private void OnCommand(string command, string args)
         {
-            this.PluginUi.Visible = true;
+            ToggleConfigUI();
         }
 
-        private void DrawUI()
-        {
-            this.PluginUi.Draw();
-        }
+        private void DrawUI() => _windowSystem.Draw();
 
-        private void DrawConfigUI()
-        {
-            this.PluginUi.Visible = true;
-        }
-
-        public unsafe void OnLogin()
+        private unsafe void OnLogin()
         {
             try
             {
                 AM = ActionManager.Instance();
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-
+                Services.Logger.Error("Failed to get ActionManager instance. Plugin will not function correctly.");
+                Services.Logger.Error(exception, "OnLogin");
             }
         }
 
-        public unsafe void OnLogout(int _, int __)
+        private unsafe void OnLogout(int _, int __)
         {
             AM = null;
         }
+
+        public void ToggleConfigUI() => ConfigWindow.Toggle();
 
         private unsafe bool HandleAntCheck(ActionManager* actionManager, ActionType actionType, uint actionID)
         {
             if (AM == null || ClientState.LocalPlayer == null) return false;
             bool ret = DrawAntsHook.Original(actionManager, actionType, actionID);
-            if (ret)
+            if (ret || actionType != ActionType.Action || Configuration.ShowOnlyInCombat && !InCombat)
                 return ret;
 
-            if (actionType != ActionType.Action)
-                return ret;
-            if (Configuration.ShowOnlyInCombat && !InCombat)
-                return ret;
             if (Configuration.ActiveActions.ContainsKey(actionID))
             {
-                if (!CachedActions.ContainsKey(actionID))
+                if (!_cachedActions.TryGetValue(actionID, out Action action))
                     return ret;
 
                 bool recastActive = AM->IsRecastTimerActive(actionType, actionID);
-                var action = CachedActions[actionID];
                 float timeLeft;
                 float recastTime = AM->GetRecastTime(actionType, actionID);
                 float recastElapsed = AM->GetRecastTimeElapsed(actionType, actionID);
-                var maxCharges = ActionManager.GetMaxCharges((uint)actionID, ClientState.LocalPlayer.Level);
+                var maxCharges = ActionManager.GetMaxCharges(actionID, ClientState.LocalPlayer.Level);
 
                 if (Configuration.ShowOnlyUsableActions &&
                     action.ClassJobLevel > ClientState.LocalPlayer.Level)
@@ -155,7 +144,7 @@ namespace AbilityAntsPlugin
                 {
                     if (!Configuration.AntOnFinalStack)
                     {
-                        if (AvailableCharges(action, maxCharges) > 0) return true;
+                        if (AvailableCharges(action, maxCharges) > 0 && !recastActive) return true;
                         recastTime /= maxCharges;
                     }
                 }
@@ -183,14 +172,11 @@ namespace AbilityAntsPlugin
 
         private void CacheActions()
         {
-            CachedActions = new();
-
-            var whitelistedActions = this.PluginUi.JobActionWhitelist.Values.SelectMany(hashSet => hashSet).ToList();
+            var whitelistedActions = ConfigWindow.JobActionWhitelist.Values.SelectMany(hashSet => hashSet).ToList();
 
             var actions = Services.DataManager.GetExcelSheet<Action>()!
                 .Where(a =>
-                    (!a.IsPvP &&
-                     a.ClassJob.ValueNullable?.Unknown6 > 0 &&
+                    (a is { IsPvP: false, ClassJob.ValueNullable.Unknown6: > 0 } &&
                      a.IsPlayerAction &&
                      (a.ActionCategory.RowId == 4 || a.Recast100ms > 100))
                     || whitelistedActions.Contains((int)a.RowId)) // Include whitelisted actions
@@ -198,10 +184,7 @@ namespace AbilityAntsPlugin
 
             foreach (var action in actions)
             {
-                if (!CachedActions.ContainsKey(action.RowId))
-                {
-                    CachedActions[action.RowId] = action;
-                }
+                _cachedActions.TryAdd(action.RowId, action);
             }
 
             var roleActions = Services.DataManager.GetExcelSheet<Action>()!
@@ -210,10 +193,7 @@ namespace AbilityAntsPlugin
 
             foreach (var ra in roleActions)
             {
-                if (!CachedActions.ContainsKey(ra.RowId))
-                {
-                    CachedActions[ra.RowId] = ra;
-                }
+                _cachedActions.TryAdd(ra.RowId, ra);
             }
         }
     }
