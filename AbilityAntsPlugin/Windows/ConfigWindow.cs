@@ -51,7 +51,7 @@ public class ConfigWindow : Window, IDisposable
         // Cache jobs
         _jobs = Services.DataManager.GetExcelSheet<ClassJob>()!
             .Where(j => j.Role > 0 && j.ItemSoulCrystal.Value.RowId > 0)
-            .OrderBy(j => j.Name.ExtractText())
+            .OrderBy(j => j.Name.ToString())
             .ToList();
 
         // Cache actions
@@ -59,10 +59,10 @@ public class ConfigWindow : Window, IDisposable
         _actions = allActions.ToFrozenDictionary(a => a.RowId, a => a);
 
         // Cache action names
-        _actionNames = allActions.ToFrozenDictionary(a => a.RowId, a => a.Name.ExtractText());
+        _actionNames = allActions.ToFrozenDictionary(a => a.RowId, a => a.Name.ToString());
 
         // Cache job abbreviations
-        _jobAbbreviations = _jobs.ToFrozenDictionary(j => j.RowId, j => j.Abbreviation.ExtractText());
+        _jobAbbreviations = _jobs.ToFrozenDictionary(j => j.RowId, j => j.Abbreviation.ToString());
 
         // Build job action ID lists
         var jobActionIdsBuilder = new Dictionary<uint, List<uint>>();
@@ -159,11 +159,38 @@ public class ConfigWindow : Window, IDisposable
 
         using (ImRaii.Child("actions", new(-1, -1)))
         {
-            var actionIds = _selectedJob != null
-                ? _jobActionIds[_selectedJob.Value.RowId]
-                : _roleActionIds;
+            var actionSheet = Services.DataManager.GetExcelSheet<Action>()!;
+            List<Action> actions;
 
-            DrawActions(actionIds);
+            if (_selectedJob != null)
+            {
+                var job = _selectedJob.Value;
+                actions = actionSheet
+                    .Where(a => !a.IsPvP && (a.ClassJob.RowId == job.RowId || a.ClassJob.RowId == job.ClassJobParent.RowId)
+                                         && a.IsPlayerAction && (a.ActionCategory.RowId == 4 || a.Recast100ms > 100) && a.RowId != 29581)
+                    .ToList();
+
+                // Add whitelisted actions
+                if (JobActionWhitelist.TryGetValue(job.RowId, out var whitelist))
+                {
+                    foreach (var actionId in whitelist)
+                    {
+                        if (actionSheet.TryGetRow((uint)actionId, out Action extra) && actions.All(a => a.RowId != (uint)actionId))
+                            actions.Add(extra);
+                    }
+                }
+
+                actions = actions.OrderBy(a => a.Name).ToList();
+            }
+            else
+            {
+                actions = actionSheet
+                    .Where(a => a.IsRoleAction && a.ClassJobLevel != 0)
+                    .OrderBy(a => a.Name.ToString())
+                    .ToList();
+            }
+
+            DrawActions(actions);
         }
 
         ImGui.Spacing();
@@ -175,12 +202,11 @@ public class ConfigWindow : Window, IDisposable
         _configuration.Save();
     }
 
-    private void DrawActions(List<uint> actionIds)
+    private void DrawActions(List<Action> actions)
     {
-        foreach (var actionId in actionIds)
+        foreach (var action in actions)
         {
-            var action = _actions[actionId];
-            var name = _actionNames[actionId];
+            var name = action.Name.ToString();
 
             using (ImRaii.PushId(name))
             {
@@ -214,8 +240,7 @@ public class ConfigWindow : Window, IDisposable
 
     private void DrawIcon(Action action)
     {
-        GameIconLookup lookup = new GameIconLookup(action.Icon);
-        IDalamudTextureWrap? tw = Services.TextureProvider.GetFromGameIcon(lookup).GetWrapOrDefault();
-        if(tw != null) ImGui.Image(tw.Handle, tw.Size);
+        if (Services.TextureProvider.TryGetFromGameIcon((uint)action.Icon, out var texture) && texture.TryGetWrap(out var tw, out _))
+            ImGui.Image(tw.Handle, tw.Size);
     }
 }
