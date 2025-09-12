@@ -27,8 +27,8 @@ namespace AbilityAntsPlugin
         private Configuration Configuration { get; init; }
         private ConfigWindow ConfigWindow { get; init; }
 
-        private Hook<ActionManager.Delegates.IsActionHighlighted> DrawAntsHook;
-        private unsafe ActionManager* AM;
+        private readonly Hook<ActionManager.Delegates.IsActionHighlighted> _drawAntsHook;
+        private unsafe ActionManager* _am;
         private IClientState ClientState => Services.ClientState;
         private ICondition Condition => Services.Condition;
         private ICommandManager CommandManager => Services.CommandManager;
@@ -66,7 +66,7 @@ namespace AbilityAntsPlugin
             if (ClientState.IsLoggedIn)
                 OnLogin();
 
-            DrawAntsHook = GameInteropProvider.HookFromAddress<ActionManager.Delegates.IsActionHighlighted>(ActionManager.MemberFunctionPointers.IsActionHighlighted, HandleAntCheck);
+            _drawAntsHook = GameInteropProvider.HookFromAddress<ActionManager.Delegates.IsActionHighlighted>(ActionManager.MemberFunctionPointers.IsActionHighlighted, HandleAntCheck);
 
             CacheActions();
 
@@ -75,12 +75,12 @@ namespace AbilityAntsPlugin
 
         private void Enable()
         {
-            DrawAntsHook.Enable();
+            _drawAntsHook.Enable();
         }
 
         public void Dispose()
         {
-            DrawAntsHook.Dispose();
+            _drawAntsHook.Dispose();
 
             _windowSystem.RemoveAllWindows();
             ConfigWindow.Dispose();
@@ -99,7 +99,7 @@ namespace AbilityAntsPlugin
         {
             try
             {
-                AM = ActionManager.Instance();
+                _am = ActionManager.Instance();
             }
             catch (Exception exception)
             {
@@ -110,15 +110,15 @@ namespace AbilityAntsPlugin
 
         private unsafe void OnLogout(int _, int __)
         {
-            AM = null;
+            _am = null;
         }
 
         public void ToggleConfigUI() => ConfigWindow.Toggle();
 
         private unsafe bool HandleAntCheck(ActionManager* actionManager, ActionType actionType, uint actionID)
         {
-            if (AM == null || ClientState.LocalPlayer == null) return false;
-            bool ret = DrawAntsHook.Original(actionManager, actionType, actionID);
+            if (_am == null || ClientState.LocalPlayer == null) return false;
+            bool ret = _drawAntsHook.Original(actionManager, actionType, actionID);
             if (ret || actionType != ActionType.Action || Configuration.ShowOnlyInCombat && !InCombat)
                 return ret;
 
@@ -127,10 +127,10 @@ namespace AbilityAntsPlugin
                 if (!_cachedActions.TryGetValue(actionID, out Action action))
                     return ret;
 
-                bool recastActive = AM->IsRecastTimerActive(actionType, actionID);
+                bool recastActive = _am->IsRecastTimerActive(actionType, actionID);
                 float timeLeft;
-                float recastTime = AM->GetRecastTime(actionType, actionID);
-                float recastElapsed = AM->GetRecastTimeElapsed(actionType, actionID);
+                float recastTime = _am->GetRecastTime(actionType, actionID);
+                float recastElapsed = _am->GetRecastTimeElapsed(actionType, actionID);
                 var maxCharges = ActionManager.GetMaxCharges(actionID, ClientState.LocalPlayer.Level);
 
                 if (Configuration.ShowOnlyUsableActions &&
@@ -150,7 +150,7 @@ namespace AbilityAntsPlugin
                 }
                 timeLeft = recastTime - recastElapsed;
 
-                return timeLeft <= Configuration.ActiveActions[actionID] / 1000;
+                return timeLeft <= Configuration?.ActiveActions[actionID] / 1000;
             }
             return ret;
 
@@ -158,14 +158,16 @@ namespace AbilityAntsPlugin
 
         private unsafe int AvailableCharges(Action action, ushort maxCharges)
         {
-            if (maxCharges == 0) return 0;
+            if (_am == null || maxCharges == 0) return 0;
             RecastDetail* timer;
             // Kinda janky, I think
-            var tmp = AM->GetRecastGroup(1, action.RowId);
+            var tmp = _am->GetRecastGroup(1, action.RowId);
             if (action.CooldownGroup == 58)
-                timer = AM->GetRecastGroupDetail(action.AdditionalCooldownGroup);
+                timer = _am->GetRecastGroupDetail(action.AdditionalCooldownGroup);
             else
-                timer = AM->GetRecastGroupDetail((byte)tmp);
+                timer = _am->GetRecastGroupDetail((byte)tmp);
+            if (timer == null) return 0;
+
             if (timer->IsActive) return maxCharges;
             return (int)(maxCharges * (timer->Elapsed / timer->Total));
         }

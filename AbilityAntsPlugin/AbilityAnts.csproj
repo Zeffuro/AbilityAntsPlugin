@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/13.0.0">
+<Project Sdk="Dalamud.NET.Sdk/13.1.0">
   <PropertyGroup>
     <Authors>attick, Zeffuro</Authors>
     <Company></Company>
-    <Version>1.0.2.0</Version>
+    <Version>1.0.2.1</Version>
     <Description>Ants in your /pants!</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Zeffuro/AbilityAntsPlugin</PackageProjectUrl>
