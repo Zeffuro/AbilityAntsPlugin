@@ -180,7 +180,7 @@ public class ConfigWindow : Window, IDisposable
                     }
                 }
 
-                actions = actions.OrderBy(a => a.Name).ToList();
+                actions = actions.OrderBy(a => a.Name.ToString(), StringComparer.Ordinal).ToList();
             }
             else
             {
