@@ -1,16 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/13.1.0">
+<Project Sdk="Dalamud.NET.Sdk/14.0.0">
   <PropertyGroup>
     <Authors>attick, Zeffuro</Authors>
     <Company></Company>
-    <Version>1.0.2.1</Version>
+    <Version>1.0.2.2</Version>
     <Description>Ants in your /pants!</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/Zeffuro/AbilityAntsPlugin</PackageProjectUrl>
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);CA1416</NoWarn>

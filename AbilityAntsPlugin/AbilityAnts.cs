@@ -33,6 +33,7 @@ namespace AbilityAntsPlugin
         private ICondition Condition => Services.Condition;
         private ICommandManager CommandManager => Services.CommandManager;
         private IGameInteropProvider GameInteropProvider => Services.GameInteropProvider;
+        private IObjectTable ObjectTable => Services.ObjectTable;
 
         private bool InCombat => Condition[ConditionFlag.InCombat];
 
@@ -117,7 +118,7 @@ namespace AbilityAntsPlugin
 
         private unsafe bool HandleAntCheck(ActionManager* actionManager, ActionType actionType, uint actionID)
         {
-            if (_am == null || ClientState.LocalPlayer == null) return false;
+            if (_am == null || ObjectTable.LocalPlayer == null) return false;
             bool ret = _drawAntsHook.Original(actionManager, actionType, actionID);
             if (ret || actionType != ActionType.Action || Configuration.ShowOnlyInCombat && !InCombat)
                 return ret;
@@ -131,10 +132,10 @@ namespace AbilityAntsPlugin
                 float timeLeft;
                 float recastTime = _am->GetRecastTime(actionType, actionID);
                 float recastElapsed = _am->GetRecastTimeElapsed(actionType, actionID);
-                var maxCharges = ActionManager.GetMaxCharges(actionID, ClientState.LocalPlayer.Level);
+                var maxCharges = ActionManager.GetMaxCharges(actionID, ObjectTable.LocalPlayer.Level);
 
                 if (Configuration.ShowOnlyUsableActions &&
-                    action.ClassJobLevel > ClientState.LocalPlayer.Level)
+                    action.ClassJobLevel > ObjectTable.LocalPlayer.Level)
                     return false;
 
                 if (!recastActive && maxCharges == 0)
