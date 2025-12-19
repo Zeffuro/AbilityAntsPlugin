@@ -13,6 +13,7 @@ namespace AbilityAnts
         [PluginService] public static ITextureProvider TextureProvider { get; private set; } = null!;
         [PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
         [PluginService] public static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
+        [PluginService] public static IObjectTable ObjectTable { get; private set; } = null!;
         [PluginService] public static IPluginLog Logger { get; private set; } = null!;
 
         public static void Initialize(IDalamudPluginInterface pi)
