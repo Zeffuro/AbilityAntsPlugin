@@ -123,6 +123,8 @@ namespace AbilityAntsPlugin
             if (ret || actionType != ActionType.Action || Configuration.ShowOnlyInCombat && !InCombat)
                 return ret;
 
+            if (actionManager->GetActionStatus(actionType, actionID, ObjectTable.LocalPlayer.GameObjectId, false) != 0) return ret;
+
             if (Configuration.ActiveActions.ContainsKey(actionID))
             {
                 if (!_cachedActions.TryGetValue(actionID, out Action action))
