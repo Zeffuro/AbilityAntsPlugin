@@ -131,7 +131,6 @@ namespace AbilityAntsPlugin
                     return ret;
 
                 bool recastActive = _am->IsRecastTimerActive(actionType, actionID);
-                float timeLeft;
                 float recastTime = _am->GetRecastTime(actionType, actionID);
                 float recastElapsed = _am->GetRecastTimeElapsed(actionType, actionID);
                 var maxCharges = ActionManager.GetMaxCharges(actionID, ObjectTable.LocalPlayer.Level);
@@ -145,18 +144,30 @@ namespace AbilityAntsPlugin
 
                 if (maxCharges > 0)
                 {
+                    var currentCharges = _am->GetCurrentCharges(actionID);
+                    var perChargeRecast = ActionManager.GetAdjustedRecastTime(ActionType.Action, actionID) / 1000f;
+
                     if (!Configuration.AntOnFinalStack)
                     {
-                        if (AvailableCharges(action, maxCharges) > 0 && !recastActive) return true;
-                        recastTime /= maxCharges;
+                        if (currentCharges > 0 && !recastActive) return true;
+                        var nextChargeBoundary = (currentCharges + 1) * perChargeRecast;
+                        var timeLeft = nextChargeBoundary - recastElapsed;
+                        return timeLeft <= Configuration?.ActiveActions[actionID] / 1000;
+                    }
+                    else
+                    {
+                        if (currentCharges >= maxCharges) return true;
+                        if (currentCharges < maxCharges - 1) return false;
+                        var finalChargeBoundary = maxCharges * perChargeRecast;
+                        var timeLeft = finalChargeBoundary - recastElapsed;
+                        return timeLeft <= Configuration?.ActiveActions[actionID] / 1000;
                     }
                 }
-                timeLeft = recastTime - recastElapsed;
 
-                return timeLeft <= Configuration?.ActiveActions[actionID] / 1000;
+                var timeRemaining = recastTime - recastElapsed;
+                return timeRemaining <= Configuration?.ActiveActions[actionID] / 1000;
             }
             return ret;
-
         }
 
         private unsafe int AvailableCharges(Action action, ushort maxCharges)
